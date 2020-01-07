@@ -1,69 +1,94 @@
+  
 var gulp = require('gulp'),
-    sass = require('gulp-ruby-sass'),
-    autoprefixer = require('gulp-autoprefixer'),
-    cssnano = require('gulp-cssnano'),
-    uglify = require('gulp-uglify'),
-    imagemin = require('gulp-imagemin'),
-    rename = require('gulp-rename'),
-    concat = require('gulp-concat'),
-    notify = require('gulp-notify'),
-    cache = require('gulp-cache'),
-    livereload = require('gulp-livereload'),
-    del = require('del');
+sass = require('gulp-ruby-sass'),
+autoprefixer = require('gulp-autoprefixer'),
+cssnano = require('gulp-cssnano'),
+uglify = require('gulp-uglify'),
+imagemin = require('gulp-imagemin'),
+rename = require('gulp-rename'),
+concat = require('gulp-concat'),
+notify = require('gulp-notify'),
+cache = require('gulp-cache'),
+livereload = require('gulp-livereload'),
+del = require('del'),
+useref = require('gulp-useref'),
+browserSync = require('browser-sync').create();
+
+
+// BrowserSync
+gulp.task('browsersync', function (done) {
+  browserSync.init({
+    proxy: 'http://localhost:2000/wordpress-practice/',
+		open: true,
+    injectChanges: true
+    });
+    done();
+});
+
+gulp.task('reload', function(done) {
+  browserSync.reload();
+  done();
+});
 
 
 gulp.task('sass', function() {
-    gulp.src('./assets/sass/**/*.scss')
-        .pipe(sass().on('error', sass.logError))
-        .pipe(gulp.dest('./build/css'));
+gulp.src('src/sass/**/*.scss')
+    .pipe(sass().on('error', sass.logError))
+    .pipe(gulp.dest('dist/css'));
 });
 
 //Compress and minify sass
 gulp.task('styles', function() {
-    return sass('assets/sass/child-styles.scss', { style: 'expanded' })
-      .pipe(autoprefixer('last 2 version'))
-      .pipe(gulp.dest('./build/css'))
-      .pipe(rename({suffix: '.min'}))
-      .pipe(cssnano())
-      .pipe(gulp.dest('./build/css'))
-      .pipe(notify({ message: 'Styles task complete' }));
-  });
+return sass('src/sass/main.scss', { style: 'expanded' })
+  .pipe(autoprefixer('last 2 version'))
+  .pipe(gulp.dest('dist/css'))
+  .pipe(rename({suffix: '.min'}))
+  .pipe(cssnano())
+  .pipe(gulp.dest('dist/css'))
+  .pipe(browserSync.stream())
+  .pipe(livereload())
+  .pipe(notify({ message: 'Styles task complete' }));
+});
 
 //Compress Images
-  gulp.task('images', function() {
-    return gulp.src('assets/images/**/*')
-      .pipe(imagemin({ optimizationLevel: 5, progressive: true, interlaced: true }))
-      .pipe(gulp.dest('build/img'))
-      .pipe(notify({ message: 'Images task complete' }));
+gulp.task('images', function() {
+return gulp.src('src/img/**/*')
+  .pipe(cache(imagemin({ optimizationLevel: 5, progressive: true, interlaced: true })))
+  .pipe(gulp.dest('dist/images'))
+  .pipe(browserSync.stream())
+  .pipe(notify({ message: 'Images task complete' }));
+});
+
+//Compress Script files
+gulp.task('scripts', function() {
+  return gulp.src('src/js/**/*')
+    .pipe(rename({suffix: '.min'}))
+    .pipe(useref())
+    .pipe(uglify())
+    .pipe(gulp.dest('dist/js'))
+    .pipe(browserSync.stream())
+    .pipe(notify({ message: 'Script task complete' }));
   });
 
-//Cleaning out destination folders
-  gulp.task('clean', function() {
-    return del(['build/css', 'build/img']);
+//Gulp Watch files
+gulp.task('watch', function(){
+  gulp.watch('src/sass/**/*', gulp.series('styles')).on('change', browserSync.reload);
+  gulp.watch('src/js/**/*', gulp.series('scripts')).on('change', browserSync.reload);
+  gulp.watch('src/images/**/*', gulp.series(gulp.parallel('images', 'reload')))
 });
 
-//Gulp Watch 
-gulp.task('watch', function() {
 
-    // Watch .scss files
-    gulp.watch('assets/sass/**/*.scss', ['styles']);
-  
-    // Watch image files
-    gulp.watch('assets/images/**/*', ['images']);
-    
-     // Create LiveReload server
-     livereload.listen();
-
-     // Watch any files in dist/, reload on change
-     gulp.watch(['build/**']).on('change', livereload.changed);
+gulp.task('serve', function(done){
+gulp.series(
+gulp.parallel(
+'images',
+'styles', 
+'scripts',
+'watch'
+));
+done();
 
 });
 
-    
-gulp.task('serve', gulp.series('clean',
-  gulp.parallel(
-    'images',
-    'styles')));
- 
 // attach a default task, so when when just <code>gulp</code> the thing runs
-gulp.task('default', gulp.series('serve'));
+gulp.task('default', gulp.series( gulp.parallel('serve', 'browsersync')));
