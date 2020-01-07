@@ -1,4 +1,5 @@
   
+  
 var gulp = require('gulp'),
 sass = require('gulp-ruby-sass'),
 autoprefixer = require('gulp-autoprefixer'),
@@ -19,16 +20,17 @@ browserSync = require('browser-sync').create();
 gulp.task('browsersync', function (done) {
   browserSync.init({
     proxy: 'http://localhost:2000/wordpress-practice/',
+    port: '2000',
 		open: true,
     injectChanges: true
     });
     done();
 });
 
-gulp.task('reload', function(done) {
-  browserSync.reload();
-  done();
-});
+const reload = done => {
+	browserSync.reload();
+	done();
+};
 
 
 gulp.task('sass', function() {
@@ -72,23 +74,22 @@ gulp.task('scripts', function() {
 
 //Gulp Watch files
 gulp.task('watch', function(){
-  gulp.watch('src/sass/**/*', gulp.series('styles')).on('change', browserSync.reload);
-  gulp.watch('src/js/**/*', gulp.series('scripts')).on('change', browserSync.reload);
-  gulp.watch('src/images/**/*', gulp.series(gulp.parallel('images', 'reload')))
+  gulp.watch('src/sass/**/*', gulp.series('styles', reload))
+  gulp.watch('src/js/**/*', gulp.series('scripts', reload))
+  gulp.watch('src/images/**/*', gulp.series('images', reload))
 });
 
 
-gulp.task('serve', function(done){
+gulp.task('serve',
 gulp.series(
 gulp.parallel(
 'images',
 'styles', 
 'scripts',
-'watch'
-));
-done();
-
-});
+'watch',
+'browsersync'
+))
+);
 
 // attach a default task, so when when just <code>gulp</code> the thing runs
-gulp.task('default', gulp.series( gulp.parallel('serve', 'browsersync')));
+gulp.task('default', gulp.series( 'serve'));
